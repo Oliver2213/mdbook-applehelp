@@ -13,6 +13,13 @@ readme = "README.md"
 name = "mdbook-applehelp"
 path = "src/main.rs"
 
+
+[profile.release]
+  opt-level = 3
+  lto = "fat"
+  codegen-units = 1
+  strip = "symbols"
+
 [dependencies]
 mdbook-renderer = "0.5.3"
 serde = { version = "1", features = ["derive"] }
