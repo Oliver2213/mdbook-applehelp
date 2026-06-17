@@ -1,0 +1,12 @@
+[book]
+title = "Demo App Help"
+authors = ["Demo Author"]
+description = "A small demonstration of mdbook-applehelp output."
+language = "en"
+src = "src"
+
+[output.applehelp]
+help-book-name = "com.example.demoapp.help"
+help-book-folder = "DemoAppHelp"
+generate-index = true
+index-format = "both"

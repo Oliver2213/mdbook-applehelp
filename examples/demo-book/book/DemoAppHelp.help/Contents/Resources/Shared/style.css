@@ -1,0 +1,150 @@
+/* mdbook-applehelp default stylesheet.
+   Tuned for Apple Help Viewer: system font, comfortable reading column. */
+
+:root {
+    color-scheme: light dark;
+    --fg: #1d1d1f;
+    --fg-muted: #6e6e73;
+    --bg: #ffffff;
+    --bg-code: #f5f5f7;
+    --bg-code-block: #f5f5f7;
+    --accent: #0066cc;
+    --border: #d2d2d7;
+    --rule: #e5e5ea;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --fg: #f5f5f7;
+        --fg-muted: #a1a1a6;
+        --bg: #1c1c1e;
+        --bg-code: #2c2c2e;
+        --bg-code-block: #1c1c1e;
+        --accent: #4ea1ff;
+        --border: #3a3a3c;
+        --rule: #3a3a3c;
+    }
+}
+
+html {
+    background: var(--bg);
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+        "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--fg);
+    background: var(--bg);
+    margin: 0;
+    padding: 1.5rem 2rem;
+    -webkit-font-smoothing: antialiased;
+}
+
+article.chapter {
+    max-width: 44rem;
+    margin: 0 auto;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    line-height: 1.25;
+    margin-top: 1.6em;
+    margin-bottom: 0.6em;
+    color: var(--fg);
+}
+
+h1 { font-size: 2em; margin-top: 0; }
+h2 { font-size: 1.5em; border-bottom: 1px solid var(--rule); padding-bottom: 0.2em; }
+h3 { font-size: 1.2em; }
+h4 { font-size: 1em; }
+
+p, ul, ol, blockquote, table, pre {
+    margin: 0.75em 0;
+}
+
+a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+ul, ol {
+    padding-left: 1.5em;
+}
+
+li + li {
+    margin-top: 0.2em;
+}
+
+blockquote {
+    margin: 1em 0;
+    padding: 0.5em 1em;
+    border-left: 3px solid var(--border);
+    color: var(--fg-muted);
+}
+
+code {
+    font-family: "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono",
+        "Courier New", monospace;
+    font-size: 0.92em;
+    background: var(--bg-code);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+}
+
+pre {
+    background: var(--bg-code-block);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.75em 1em;
+    overflow-x: auto;
+}
+
+pre code {
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    font-size: 0.9em;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+th, td {
+    border: 1px solid var(--border);
+    padding: 0.4em 0.75em;
+    text-align: left;
+}
+
+th {
+    background: var(--bg-code);
+    font-weight: 600;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 2em 0;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+kbd {
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 0.85em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 0.1em 0.4em;
+}
