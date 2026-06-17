@@ -37,12 +37,14 @@ GETTING STARTED:
   3. The bundle lands at <build-dir>/applehelp/MyAppHelp.help — copy it
      into your app's Contents/Resources/ directory.
 
-OPTIONAL CONFIG (with defaults):
+OPTIONAL CONFIG — these have a baked-in default if you leave them unset:
        generate-index = true            # run hiutil on macOS (false to skip)
        index-format   = \"both\"          # \"corespotlight\" | \"lsm\" | \"both\"
-       landing-page   = \"intro.md\"      # source chapter to use as index.html
-       icon-file      = \"Shared/icon.png\"
-       external-url   = \"https://...\"   # for remote index updates
+
+OPTIONAL CONFIG — no default; set these only if you want to override:
+     # landing-page = \"chapter_1.md\"   # default: first chapter in SUMMARY.md
+     # icon-file    = \"Shared/icon.png\"
+     # external-url = \"https://...\"    # for remote index updates
 
 CLI FLAGS (override book.toml for one build):
   --no-index      Skip hiutil regardless of generate-index.
