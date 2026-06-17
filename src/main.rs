@@ -15,10 +15,52 @@ mod walk;
 
 use config::IndexOverride;
 
+const LONG_ABOUT: &str = "\
+An mdBook backend that generates a macOS Apple Help Book (.help bundle), ready for imbedding in a .app.
+
+This tool is invoked by `mdbook` itself — you don't normally run it directly. \
+To enable it, add an [output.applehelp] table to your book.toml, then build \
+the book with `mdbook build`.";
+
+const AFTER_LONG_HELP: &str = "\
+GETTING STARTED:
+  1. Add an [output.applehelp] table to your book.toml:
+
+       [output.applehelp]
+       help-book-name   = \"com.example.myapp.help\"   # CFBundleHelpBookName
+       help-book-folder = \"MyAppHelp\"                # bundle directory
+
+  2. Build the book:
+
+       mdbook build
+
+  3. The bundle lands at <build-dir>/applehelp/MyAppHelp.help — copy it
+     into your app's Contents/Resources/ directory.
+
+OPTIONAL CONFIG (with defaults):
+       generate-index = true            # run hiutil on macOS (false to skip)
+       index-format   = \"both\"          # \"corespotlight\" | \"lsm\" | \"both\"
+       landing-page   = \"intro.md\"      # source chapter to use as index.html
+       icon-file      = \"Shared/icon.png\"
+       external-url   = \"https://...\"   # for remote index updates
+
+CLI FLAGS (override book.toml for one build):
+  --no-index      Skip hiutil regardless of generate-index.
+  --force-index   Run hiutil regardless of generate-index.
+
+Pass these via the `command` key in book.toml:
+
+       [output.applehelp]
+       command = \"mdbook-applehelp --no-index\"
+
+See https://codeberg.org/coffee_nebula/mdbook-applehelp for full docs.";
+
 #[derive(Parser, Debug)]
 #[command(
     name = "mdbook-applehelp",
-    about = "An mdBook backend that generates a macOS Apple Help Book (.help bundle).",
+    about = "An mdBook backend that generates a macOS Apple Help Book, ready to be imbedded in a .app.",
+    long_about = LONG_ABOUT,
+    after_long_help = AFTER_LONG_HELP,
     version
 )]
 struct Cli {
