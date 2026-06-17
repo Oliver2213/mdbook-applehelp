@@ -156,3 +156,241 @@ fn escape(s: &str) -> String {
     }
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{AppleHelpConfig, IndexFormat, IndexOverride};
+
+    fn fragment(md: &str) -> String {
+        markdown_to_html_fragment(md)
+    }
+
+    /// Sibling-relative `.md` links must be swapped for `.html`, and the
+    /// original URL must no longer appear anywhere in the output (otherwise
+    /// rewriting "succeeded" but left a stale broken link in place).
+    #[test]
+    fn rewrites_relative_md_links_to_html() {
+        let out = fragment("[next](./next.md)");
+        assert!(out.contains(r#"href="./next.html""#), "got: {out}");
+        assert!(!out.contains("./next.md"), "stale URL leaked: {out}");
+    }
+
+    /// `../` (parent-relative) `.md` links must also be rewritten.
+    #[test]
+    fn rewrites_parent_relative_md_links() {
+        let out = fragment("[back](../intro.md)");
+        assert!(out.contains(r#"href="../intro.html""#), "got: {out}");
+        assert!(!out.contains("../intro.md"), "stale URL leaked: {out}");
+    }
+
+    /// `page.md#section-2` should rewrite the path but keep the anchor —
+    /// users use `path#anchor` to jump within rewritten pages.
+    #[test]
+    fn preserves_fragment_when_rewriting() {
+        let out = fragment("[anchored](./page.md#section-2)");
+        assert!(out.contains(r#"href="./page.html#section-2""#), "got: {out}");
+        assert!(!out.contains("./page.md"), "stale URL leaked: {out}");
+    }
+
+    /// `.markdown` (the long-form extension) gets the same treatment as `.md`.
+    #[test]
+    fn rewrites_markdown_extension_too() {
+        let out = fragment("[x](./readme.markdown)");
+        assert!(out.contains(r#"href="./readme.html""#), "got: {out}");
+        assert!(
+            !out.contains("./readme.markdown"),
+            "stale URL leaked: {out}"
+        );
+    }
+
+    /// External URLs that happen to end in `.md` must not be rewritten —
+    /// they point at someone else's server, not our bundle. The positive
+    /// `contains` already pins the href to the exact original URL.
+    #[test]
+    fn passes_through_external_https() {
+        let out = fragment("[ext](https://example.com/page.md)");
+        assert!(
+            out.contains(r#"href="https://example.com/page.md""#),
+            "got: {out}"
+        );
+    }
+
+    #[test]
+    fn passes_through_mailto() {
+        let out = fragment("[mail](mailto:foo@bar.test)");
+        assert!(out.contains(r#"href="mailto:foo@bar.test""#), "got: {out}");
+    }
+
+    /// An absolute-path link (`/foo/bar.md`) is treated as host-relative
+    /// (i.e. user knows what they're doing) and passes through unchanged.
+    #[test]
+    fn passes_through_absolute_path() {
+        let out = fragment("[abs](/absolute/page.md)");
+        assert!(out.contains(r#"href="/absolute/page.md""#), "got: {out}");
+    }
+
+    /// Fragment-only links (`#section`) navigate within the current page —
+    /// they have no file part to rewrite.
+    #[test]
+    fn passes_through_fragment_only() {
+        let out = fragment("[here](#section)");
+        assert!(out.contains(r##"href="#section""##), "got: {out}");
+    }
+
+    /// Autolinks (`<https://...>` in markdown) are flagged by pulldown-cmark
+    /// with `LinkType::Autolink` — we short-circuit those before any rewrite.
+    #[test]
+    fn passes_through_autolink_url() {
+        let out = fragment("<https://example.com>");
+        assert!(out.contains(r#"href="https://example.com""#), "got: {out}");
+    }
+
+    /// `Tag::Image` URLs (`![alt](src)`) go through the same rewrite path
+    /// as `Tag::Link` — verify the image branch is wired correctly.
+    #[test]
+    fn rewrites_image_src() {
+        let out = fragment("![cover](./cover.md)");
+        assert!(out.contains(r#"src="./cover.html""#), "got: {out}");
+        assert!(!out.contains("./cover.md"), "stale URL leaked: {out}");
+    }
+
+    /// Anything that isn't `.md`/`.markdown` (e.g. `.png`, `.pdf`) is left alone.
+    #[test]
+    fn leaves_non_md_extension_alone() {
+        let out = fragment("[img](./pic.png)");
+        assert!(out.contains(r#"href="./pic.png""#), "got: {out}");
+    }
+
+    /// `is_external` decides whether a URL is "ours to rewrite" or not:
+    /// URL schemes, absolute paths, and fragment-only links are external;
+    /// bare or `./` / `../` relative paths are ours.
+    #[test]
+    fn is_external_detects_schemes_paths_and_fragments() {
+        assert!(is_external("https://example.com"));
+        assert!(is_external("mailto:x@y.test"));
+        assert!(is_external("#frag"));
+        assert!(is_external("/abs/page.md"));
+        assert!(!is_external("./rel.md"));
+        assert!(!is_external("rel.md"));
+        assert!(!is_external("a/b.md"));
+    }
+
+    /// `split_fragment` separates `path#anchor` into `(path, Some(anchor))`,
+    /// preserving any `#` characters inside the anchor portion.
+    #[test]
+    fn split_fragment_separates_path_and_anchor() {
+        assert_eq!(split_fragment("a.md"), ("a.md", None));
+        assert_eq!(split_fragment("a.md#b"), ("a.md", Some("b")));
+        assert_eq!(split_fragment("a.md#b#c"), ("a.md", Some("b#c")));
+    }
+
+    fn test_cfg() -> AppleHelpConfig {
+        AppleHelpConfig {
+            help_book_name: "com.test.help".into(),
+            help_book_folder: "TestHelp".into(),
+            title: "Test Book".into(),
+            description: "A description".into(),
+            language: "en".into(),
+            authors: vec!["Author One".into(), "Author Two".into()],
+            index_format: IndexFormat::Both,
+            generate_index: true,
+            landing_page: None,
+            icon_file: Some("Shared/icon.png".into()),
+            external_url: None,
+            access_key: None,
+            index_override: IndexOverride::None,
+        }
+    }
+
+    /// Every Apple Help page needs: language, AppleTitle (the heading shown
+    /// in Help Viewer), description/author meta, page <title>, stylesheet link,
+    /// and an anchor when one is requested.
+    #[test]
+    fn render_page_includes_required_meta() {
+        let cfg = test_cfg();
+        let meta = PageMeta {
+            title: "Intro",
+            apple_title: "Test Book",
+            language: "en",
+            stylesheet_relative: "../Shared/style.css",
+            anchor: Some("intro"),
+        };
+        let out = render_page("<p>hi</p>", &meta, &cfg);
+
+        assert!(out.contains(r#"<html lang="en">"#), "lang: {out}");
+        assert!(
+            out.contains(r#"<meta name="AppleTitle" content="Test Book">"#),
+            "AppleTitle: {out}"
+        );
+        assert!(
+            out.contains(r#"<meta name="AppleIcon" content="Shared/icon.png">"#),
+            "AppleIcon: {out}"
+        );
+        assert!(
+            out.contains(r#"<meta name="description" content="A description">"#),
+            "description: {out}"
+        );
+        assert!(
+            out.contains(r#"<meta name="author" content="Author One, Author Two">"#),
+            "author: {out}"
+        );
+        assert!(out.contains("<title>Intro</title>"), "title: {out}");
+        assert!(
+            out.contains(r#"<link rel="stylesheet" href="../Shared/style.css">"#),
+            "stylesheet: {out}"
+        );
+        assert!(out.contains(r#"<a name="intro">"#), "anchor: {out}");
+        assert!(out.contains("<p>hi</p>"), "body: {out}");
+    }
+
+    /// AppleIcon meta is emitted only when `icon_file` is configured.
+    #[test]
+    fn render_page_omits_apple_icon_when_not_configured() {
+        let mut cfg = test_cfg();
+        cfg.icon_file = None;
+        let meta = PageMeta {
+            title: "T",
+            apple_title: "T",
+            language: "en",
+            stylesheet_relative: "../Shared/style.css",
+            anchor: Some("x"),
+        };
+        let out = render_page("x", &meta, &cfg);
+        assert!(!out.contains("AppleIcon"), "should omit AppleIcon: {out}");
+    }
+
+    /// `PageMeta { anchor: None, .. }` skips the `<a name="...">` element.
+    #[test]
+    fn render_page_omits_anchor_when_none() {
+        let cfg = test_cfg();
+        let meta = PageMeta {
+            title: "T",
+            apple_title: "T",
+            language: "en",
+            stylesheet_relative: "../Shared/style.css",
+            anchor: None,
+        };
+        let out = render_page("x", &meta, &cfg);
+        assert!(!out.contains("<a name="), "should omit anchor: {out}");
+    }
+
+    /// User-supplied meta values (description, etc.) must be HTML-escaped
+    /// so a stray `<` or `&` in book.toml can't break the document.
+    #[test]
+    fn render_page_escapes_special_chars_in_meta() {
+        let mut cfg = test_cfg();
+        cfg.description = "<dangerous & \"quoted\">".into();
+        let meta = PageMeta {
+            title: "T",
+            apple_title: "T",
+            language: "en",
+            stylesheet_relative: "../Shared/style.css",
+            anchor: None,
+        };
+        let out = render_page("x", &meta, &cfg);
+        assert!(out.contains("&lt;dangerous &amp;"), "escape: {out}");
+        assert!(out.contains("&quot;quoted&quot;"), "escape quote: {out}");
+        assert!(!out.contains("<dangerous"), "raw <: {out}");
+    }
+}
