@@ -45,6 +45,8 @@ struct RawConfig {
     icon_file: Option<String>,
     external_url: Option<String>,
     access_key: Option<String>,
+    version: Option<String>,
+    version_env: Option<String>,
 }
 
 #[derive(Debug)]
@@ -61,7 +63,30 @@ pub struct AppleHelpConfig {
     pub icon_file: Option<String>,
     pub external_url: Option<String>,
     pub access_key: Option<String>,
+    pub version: String,
     pub index_override: IndexOverride,
+}
+
+/// Resolve the bundle version, preferring `$<version_env>` when set & non-empty.
+/// Falls back to the `version` config, then to the literal "1".
+/// Parameterized over the env lookup so tests don't have to mutate process env.
+fn resolve_version(
+    env_name: Option<&str>,
+    configured: Option<String>,
+    env_lookup: impl Fn(&str) -> Option<String>,
+) -> String {
+    if let Some(name) = env_name {
+        match env_lookup(name) {
+            Some(v) if !v.is_empty() => {
+                log::info!("version: using ${name} = {v:?}");
+                return v;
+            }
+            _ => log::warn!(
+                "version-env = {name:?} but the env var is unset or empty; falling back"
+            ),
+        }
+    }
+    configured.unwrap_or_else(|| "1".to_string())
 }
 
 impl AppleHelpConfig {
@@ -107,6 +132,9 @@ impl AppleHelpConfig {
             icon_file: raw.icon_file,
             external_url: raw.external_url,
             access_key: raw.access_key,
+            version: resolve_version(raw.version_env.as_deref(), raw.version, |n| {
+                std::env::var(n).ok()
+            }),
             index_override,
         })
     }
@@ -360,6 +388,87 @@ help-book-folder = "Folder"
         let cfg = AppleHelpConfig::from_context(&ctx, IndexOverride::None).unwrap();
         assert_eq!(cfg.cshelp_index_filename(), "My Book.cshelpindex");
         assert_eq!(cfg.lsm_index_filename(), "My Book.helpindex");
+    }
+
+    /// `version` defaults to "1" (matching what the spec's Info.plist example
+    /// shows) when omitted from book.toml.
+    #[test]
+    fn version_defaults_to_one() {
+        let ctx = ctx_from_toml(
+            r#"
+[output.applehelp]
+help-book-name = "com.x.help"
+help-book-folder = "Folder"
+"#,
+        );
+        let cfg = AppleHelpConfig::from_context(&ctx, IndexOverride::None).unwrap();
+        assert_eq!(cfg.version, "1");
+    }
+
+    /// `version-env` (when the named env var is set and non-empty) wins over
+    /// `version` in book.toml — needed so an Xcode build phase can stamp the
+    /// help bundle with the same version as the parent app via MARKETING_VERSION.
+    #[test]
+    fn version_env_overrides_configured_version() {
+        let got = resolve_version(
+            Some("FAKE_MARKETING_VERSION"),
+            Some("1.0".to_string()),
+            |n| {
+                if n == "FAKE_MARKETING_VERSION" {
+                    Some("3.2.1".to_string())
+                } else {
+                    None
+                }
+            },
+        );
+        assert_eq!(got, "3.2.1");
+    }
+
+    /// When `version-env` names a missing env var, fall back to `version` from
+    /// book.toml so local builds outside Xcode still produce a usable bundle.
+    #[test]
+    fn version_env_missing_falls_back_to_config() {
+        let got = resolve_version(
+            Some("DEFINITELY_MISSING"),
+            Some("9.9".to_string()),
+            |_| None,
+        );
+        assert_eq!(got, "9.9");
+    }
+
+    /// An empty-string env var is treated the same as unset — common when
+    /// MARKETING_VERSION is declared but not yet populated.
+    #[test]
+    fn version_env_empty_string_falls_back_to_config() {
+        let got = resolve_version(
+            Some("EMPTY_VAR"),
+            Some("4.5".to_string()),
+            |_| Some(String::new()),
+        );
+        assert_eq!(got, "4.5");
+    }
+
+    /// With neither `version-env` nor `version` set, default to "1".
+    #[test]
+    fn version_env_missing_and_no_config_uses_default() {
+        let got = resolve_version(Some("X"), None, |_| None);
+        assert_eq!(got, "1");
+    }
+
+    /// User-supplied `version` is preserved verbatim (Help Viewer caches on
+    /// CFBundleVersion, so users must bump this on each release).
+    #[test]
+    fn version_from_config_is_passed_through() {
+        let ctx = ctx_from_toml(
+            r#"
+[output.applehelp]
+help-book-name = "com.x.help"
+help-book-folder = "Folder"
+version = "2025.06.17-1"
+"#,
+        );
+        let cfg = AppleHelpConfig::from_context(&ctx, IndexOverride::None).unwrap();
+        assert_eq!(cfg.version, "2025.06.17-1");
     }
 
     #[test]

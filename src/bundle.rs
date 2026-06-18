@@ -24,7 +24,14 @@ pub fn write_info_plist(bundle_root: &Path, cfg: &AppleHelpConfig) -> Result<()>
         Value::String(cfg.help_book_name.clone()),
     );
     dict.insert("CFBundleName".into(), Value::String(cfg.title.clone()));
-    dict.insert("CFBundleVersion".into(), Value::String("1".into()));
+    dict.insert(
+        "CFBundleVersion".into(),
+        Value::String(cfg.version.clone()),
+    );
+    dict.insert(
+        "CFBundleShortVersionString".into(),
+        Value::String(cfg.version.clone()),
+    );
     dict.insert(
         "CFBundleInfoDictionaryVersion".into(),
         Value::String("6.0".into()),
@@ -87,6 +94,7 @@ mod tests {
             icon_file: Some("Shared/icon.png".into()),
             external_url: Some("https://example.com/help".into()),
             access_key: Some("help".into()),
+            version: "2.4.1".into(),
             index_override: IndexOverride::None,
         }
     }
@@ -114,6 +122,11 @@ mod tests {
 
         assert_eq!(read_string(&dict, "CFBundleIdentifier").as_deref(), Some("com.example.help"));
         assert_eq!(read_string(&dict, "CFBundleName").as_deref(), Some("My Book"));
+        assert_eq!(read_string(&dict, "CFBundleVersion").as_deref(), Some("2.4.1"));
+        assert_eq!(
+            read_string(&dict, "CFBundleShortVersionString").as_deref(),
+            Some("2.4.1"),
+        );
         assert_eq!(read_string(&dict, "CFBundleHelpBookFolder").as_deref(), Some("MyHelp"));
         assert_eq!(read_string(&dict, "CFBundleHelpBookName").as_deref(), Some("com.example.help"));
         assert_eq!(read_string(&dict, "CFBundleDevelopmentRegion").as_deref(), Some("en"));

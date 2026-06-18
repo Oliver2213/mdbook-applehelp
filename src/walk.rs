@@ -224,6 +224,7 @@ mod tests {
             icon_file: None,
             external_url: None,
             access_key: None,
+            version: "1".into(),
             index_override: IndexOverride::None,
         }
     }

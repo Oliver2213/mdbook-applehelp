@@ -40,6 +40,14 @@ GETTING STARTED:
 OPTIONAL CONFIG — these have a baked-in default if you leave them unset:
        generate-index = true            # run hiutil on macOS (false to skip)
        index-format   = \"both\"          # \"corespotlight\" | \"lsm\" | \"both\"
+       version        = \"1\"             # CFBundleVersion. BUMP THIS ON EACH
+                                        # RELEASE — Help Viewer caches the
+                                        # bundle keyed on (id, version) and
+                                        # will serve stale content otherwise.
+     # version-env = \"MARKETING_VERSION\"  # if set & non-empty, this env var
+                                        # overrides `version` above. Designed
+                                        # for an Xcode Run Script phase where
+                                        # MARKETING_VERSION is already exported.
 
 OPTIONAL CONFIG — no default; set these only if you want to override:
      # landing-page = \"chapter_1.md\"   # default: first chapter in SUMMARY.md

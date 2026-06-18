@@ -299,6 +299,7 @@ mod tests {
             icon_file: Some("Shared/icon.png".into()),
             external_url: None,
             access_key: None,
+            version: "1".into(),
             index_override: IndexOverride::None,
         }
     }
